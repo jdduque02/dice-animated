@@ -153,11 +153,11 @@ export function DieConfigModal({
 
   return (
     <Modal visible={die !== null} animationType="fade" transparent onRequestClose={handleDone}>
-      <Pressable style={styles.backdrop} onPress={handleDone}>
-        <Pressable
-          style={[styles.sheet, { width: Math.min(vw * 0.92, 440), maxHeight: vh * 0.85 }]}
-          onPress={(e) => e.stopPropagation()}
-        >
+      {/* Backdrop tap-to-close is a sibling of the sheet, not its parent: a Pressable
+          ancestor claims the touch responder on Android and kills the inner ScrollView's scroll. */}
+      <View style={styles.backdrop}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={handleDone} />
+        <View style={[styles.sheet, { width: Math.min(vw * 0.92, 440), maxHeight: vh * 0.85 }]}>
           <Text style={styles.title}>Configurar dado</Text>
           {die && (
             <TextInput
@@ -181,6 +181,8 @@ export function DieConfigModal({
             style={[styles.scroll, { maxHeight: vh * 0.5 }]}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={true}
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
           >
             <Text style={styles.sectionLabel}>Tipo</Text>
             <View style={styles.grid}>
@@ -372,8 +374,8 @@ export function DieConfigModal({
               <Text style={styles.doneButtonText}>Listo</Text>
             </Pressable>
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -392,7 +394,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 24,
   },
-  scroll: {},
+  scroll: { flexShrink: 1 },
   scrollContent: {
     paddingBottom: 12,
   },
