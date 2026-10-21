@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { DieAsset, getDieAsset, readDieValue, buildMixedIconOverlay, getFaceTransforms } from './dieAssets';
 import { buildNumberGeometry } from './digitGeometry';
 import { DieType, FaceStyle } from './types';
-import { PLAY_HALF_X, PLAY_HALF_Z } from '../physics/playArea';
+import { applyThrow, isAtRest, restSpawn, REST_HOLD_MS, DIE_ANGULAR_DAMPING, DIE_LINEAR_DAMPING, PlayBounds } from '../physics/throw';
 
 export type DieHandle = {
   roll: () => void;
@@ -13,30 +13,15 @@ export type DieHandle = {
 
 interface DieProps {
   world: CANNON.World;
+  material: CANNON.Material;
   type: DieType;
   color: string;
   faceStyle: FaceStyle;
   spawnIndex: number;
+  diceCount: number;
+  bounds: PlayBounds;
   onSettled: (value: number) => void;
 }
-
-const REST_LINEAR_EPS = 0.03;
-const REST_ANGULAR_EPS = 0.05;
-const REST_HOLD_MS = 260;
-
-// Keep spawn/throw positions safely inside the invisible walls regardless of how many
-// dice are on screen, so none of them spawn already outside the container. Wide enough
-// that adjacent dice don't spawn already overlapping (a die is ~1 unit across) — they'd
-// otherwise start the roll wedged into each other instead of tumbling freely.
-const SPREAD_STEP_X = PLAY_HALF_X / 2.4;
-function spreadX(index: number): number {
-  return ((index % 5) - 2) * SPREAD_STEP_X;
-}
-// The play area is now much deeper than it is wide (see playArea.ts), so give throws a
-// wide Z jitter too — otherwise every die would still land clustered near z=0, wasting
-// most of that depth. Kept a bit inside the walls (not the full ±PLAY_HALF_Z) so dice
-// don't routinely land right at the far edge, where perspective shrinks them the most.
-const THROW_JITTER_Z = PLAY_HALF_Z * 0.65;
 
 function contrastColor(hex: string): string {
   const c = hex.replace('#', '');
@@ -78,7 +63,7 @@ function PhotoFaces({ asset, uris }: { asset: DieAsset; uris: (string | null)[] 
   );
 }
 
-export const Die = forwardRef<DieHandle, DieProps>(({ world, type, color, faceStyle, spawnIndex, onSettled }, ref) => {
+export const Die = forwardRef<DieHandle, DieProps>(({ world, material, type, color, faceStyle, spawnIndex, diceCount, bounds, onSettled }, ref) => {
   const groupRef = useRef<THREE.Group>(null);
   const labelGroupRef = useRef<THREE.Group>(null);
   const bodyRef = useRef<CANNON.Body | null>(null);
@@ -96,10 +81,11 @@ export const Die = forwardRef<DieHandle, DieProps>(({ world, type, color, faceSt
   useEffect(() => {
     const body = new CANNON.Body({
       mass: 1,
+      material,
       shape: asset.shape,
-      position: new CANNON.Vec3(spreadX(spawnIndex), 1.6, 0),
-      angularDamping: 0.35,
-      linearDamping: 0.15,
+      position: new CANNON.Vec3(...restSpawn(spawnIndex, diceCount, bounds)),
+      angularDamping: DIE_ANGULAR_DAMPING,
+      linearDamping: DIE_LINEAR_DAMPING,
     });
     world.addBody(body);
     bodyRef.current = body;
@@ -117,19 +103,7 @@ export const Die = forwardRef<DieHandle, DieProps>(({ world, type, color, faceSt
       reported.current = false;
       restSince.current = null;
       if (asset.randomRange) setRolledLabel(null);
-      // Staggering the drop height by index (instead of every die starting from the
-      // same band) spreads out when each one actually reaches the ground, so a bunch
-      // of dice rolled together don't all land in the same instant and pile into each
-      // other before they've had room to tumble.
-      body.position.set(
-        spreadX(spawnIndex) + (Math.random() - 0.5) * 0.6,
-        1.3 + (spawnIndex % 5) * 0.22 + Math.random() * 0.6,
-        (Math.random() - 0.5) * THROW_JITTER_Z
-      );
-      body.quaternion.setFromEuler(Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, Math.random() * Math.PI * 2);
-      body.velocity.set((Math.random() - 0.5) * 2.5, Math.random() * 1.5, (Math.random() - 0.5) * 2.5);
-      body.angularVelocity.set((Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18);
-      body.wakeUp();
+      applyThrow(body, spawnIndex, diceCount, bounds);
     },
   }));
 
@@ -148,8 +122,7 @@ export const Die = forwardRef<DieHandle, DieProps>(({ world, type, color, faceSt
 
     if (reported.current) return;
 
-    const atRest =
-      body.velocity.lengthSquared() < REST_LINEAR_EPS && body.angularVelocity.lengthSquared() < REST_ANGULAR_EPS;
+    const atRest = isAtRest(body);
 
     if (atRest) {
       if (restSince.current === null) restSince.current = state.clock.elapsedTime;

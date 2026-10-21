@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { loadPrefs, savePrefs } from './src/storage/prefs';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View, Text, Pressable, ScrollView } from 'react-native';
 import { Scene, SceneHandle } from './src/components/Scene';
@@ -13,9 +14,21 @@ function makeId() {
 
 export default function App() {
   const sceneRef = useRef<SceneHandle>(null);
-  const [dice, setDice] = useState<DieInstanceConfig[]>([
-    { id: makeId(), type: 'd6', color: DIE_COLORS[0], faceStyle: { kind: 'numbers' } },
-  ]);
+  // Read once, synchronously, so the cached dice count/color are there on first render.
+  const [initialPrefs] = useState(loadPrefs);
+  const [lastColor, setLastColor] = useState(initialPrefs.lastColor ?? DIE_COLORS[0]);
+  const [dice, setDice] = useState<DieInstanceConfig[]>(() =>
+    Array.from({ length: initialPrefs.count }, () => ({
+      id: makeId(),
+      type: 'd6' as const,
+      color: lastColor,
+      faceStyle: { kind: 'numbers' as const },
+    }))
+  );
+
+  useEffect(() => {
+    savePrefs({ count: dice.length, lastColor });
+  }, [dice.length, lastColor]);
   const [values, setValues] = useState<Record<string, number>>({});
   const [configuringId, setConfiguringId] = useState<string | null>(null);
   const [resultsOpen, setResultsOpen] = useState(false);
@@ -32,8 +45,7 @@ export default function App() {
 
   const addDie = () => {
     const id = makeId();
-    const color = DIE_COLORS[dice.length % DIE_COLORS.length];
-    setDice((prev) => [...prev, { id, type: 'd6', color, faceStyle: { kind: 'numbers' } }]);
+    setDice((prev) => [...prev, { id, type: 'd6', color: lastColor, faceStyle: { kind: 'numbers' } }]);
     setConfiguringId(id);
   };
 
@@ -71,6 +83,7 @@ export default function App() {
   };
 
   const setDieColor = (id: string, color: string) => {
+    setLastColor(color);
     setDice((prev) => prev.map((d) => (d.id === id ? { ...d, color } : d)));
   };
 

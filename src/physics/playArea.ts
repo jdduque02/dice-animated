@@ -1,20 +1,80 @@
-// Shared play-area bounds, kept in sync with the camera in Scene.tsx. Computed against
-// the actual camera frustum (via THREE.Camera.project on the ground's corners, for the
-// narrowest common phone aspect ratios) so the walled play area fills the visible frame
-// with only ~2% margin. See Walls.tsx (uses these for the physical walls) and Scene.tsx
-// (the matching camera position/fov).
+// Play-area bounds derived from the real camera + canvas aspect, so the walled area fills
+// the visible frame on any screen (portrait phone, rotated, wide web window) instead of
+// being sized for the narrowest phone. Pure math, no imports: scripts/simRolls.ts runs it
+// under Node straight from the .ts file.
 //
-// The area is rectangular, not square: this camera's near-top-down-but-tilted angle
-// maps world X and world Z to screen space at very different scales (screen aspect is
-// tall/narrow, ~0.45), so a square region that fills the screen's width leaves most of
-// its height empty. Filling both means the play area must be deeper (Z) than it is
-// wide (X) by roughly that same ratio. One side effect: a die that lands deep in Z
-// reads noticeably smaller on screen than one near the camera — an inherent trade-off
-// of using the full frame instead of a safely-uniform-sized square.
-// These two aren't independent: a wall's real limit is its far CORNER (combining both
-// X and Z), which the camera's perspective projects non-linearly — pushing X out also
-// pushes that corner's projected Y, and vice versa. 1.83 is the most X can grow before
-// it starts forcing Z back down at all; past that point every bit of extra width costs
-// much more depth than it gains (at X=1.93 the safe depth collapses to just ~1.7).
-export const PLAY_HALF_X = 1.83;
-export const PLAY_HALF_Z = 4.35;
+// Camera sits at (0, H, CAMERA_Z) looking at the origin. The walls enclose the largest
+// axis-aligned rectangle inside the frustum's footprint on the plane y = BOUNDS_PLANE_Y
+// (roughly the top of a resting die, so a die against a wall still shows its top face).
+// The footprint is a trapezoid (near edge narrower than far edge), so the rectangle's
+// width is limited by the near corners; its depth is the near-to-far span.
+export const CAMERA_FOV = 50;
+export const CAMERA_Z = 2;
+const BOUNDS_PLANE_Y = 1;
+// Keep the walls a little inside the frame edge so a die at the wall isn't clipped.
+const FRAME_MARGIN = 0.15;
+// Camera height is chosen per aspect so the play area is ~this many dice wide (a d6 is 1
+// unit). Narrow screens need a high camera to reach it; wide windows would otherwise get a
+// huge area with tiny dice, so height is clamped.
+const TARGET_WIDTH_DICE = 7.5;
+const MIN_CAMERA_HEIGHT = 9;
+const MAX_CAMERA_HEIGHT = 18;
+
+export interface PlayArea {
+  halfX: number;
+  halfZ: number;
+  /** The camera is tilted, so the area is not centered on z = 0. */
+  centerZ: number;
+}
+
+const TAN_HALF_FOV = Math.tan((CAMERA_FOV * Math.PI) / 360);
+
+export function cameraHeightFor(aspect: number): number {
+  const h = TARGET_WIDTH_DICE / (2 * TAN_HALF_FOV * aspect);
+  return Math.min(MAX_CAMERA_HEIGHT, Math.max(MIN_CAMERA_HEIGHT, h));
+}
+
+// Camera basis for a camera at (0, H, CAMERA_Z) looking at the origin: forward f, and the
+// screen-up vector u (right is always +x).
+function basis(height: number) {
+  const n = Math.hypot(height, CAMERA_Z);
+  const fy = -height / n;
+  const fz = -CAMERA_Z / n;
+  return { fy, fz, uy: -fz, uz: fy };
+}
+
+/** World point where the ray through normalized screen coords (nx, ny) hits plane y. */
+function rayHit(nx: number, ny: number, aspect: number, height: number, y: number) {
+  const { fy, fz, uy, uz } = basis(height);
+  const dx = nx * TAN_HALF_FOV * aspect;
+  const dy = fy + ny * TAN_HALF_FOV * uy;
+  const dz = fz + ny * TAN_HALF_FOV * uz;
+  const s = (y - height) / dy;
+  return { x: dx * s, z: CAMERA_Z + dz * s };
+}
+
+export function computePlayArea(aspect: number): PlayArea {
+  const h = cameraHeightFor(aspect);
+  const nearL = rayHit(-1, -1, aspect, h, BOUNDS_PLANE_Y);
+  const farL = rayHit(-1, 1, aspect, h, BOUNDS_PLANE_Y);
+  const zMax = nearL.z - FRAME_MARGIN;
+  const zMin = farL.z + FRAME_MARGIN;
+  return {
+    halfX: Math.abs(nearL.x) - FRAME_MARGIN,
+    halfZ: (zMax - zMin) / 2,
+    centerZ: (zMax + zMin) / 2,
+  };
+}
+
+/** Normalized screen coords (-1..1 inside the frame) of a world point. */
+export function projectToNdc(x: number, y: number, z: number, aspect: number) {
+  const height = cameraHeightFor(aspect);
+  const { fy, fz, uy, uz } = basis(height);
+  const vy = y - height;
+  const vz = z - CAMERA_Z;
+  const depth = vy * fy + vz * fz;
+  return {
+    nx: x / (depth * TAN_HALF_FOV * aspect),
+    ny: (vy * uy + vz * uz) / (depth * TAN_HALF_FOV),
+  };
+}
