@@ -58,8 +58,9 @@ podrían ir en paralelo. Son pocas tareas pequeñas, así que se hacen en serie.
 - [x] Task 1: Codec + storage de prefs, cableado en App
 
 ### Checkpoint 1
-- [ ] `node scripts/checkPrefs.ts` y `node_modules/.bin/tsc --noEmit` pasan
-- [ ] Manual (web y Android): color → "+ Dado" hereda; reabrir restaura cantidad y color
+- [x] `node scripts/checkPrefs.ts` y `node_modules/.bin/tsc --noEmit` pasan
+- [x] Manual web: color → "+ Dado" hereda; reabrir restaura cantidad y color (automatizado con Playwright, 16/16)
+- [ ] Manual Android: mismo flujo en dispositivo — omitido por decisión del usuario (2026-11-10)
 
 ### Fase 2: Arnés de medición (primero lo de mayor riesgo: sin medición no hay tuning)
 - [x] Task 2: Extraer lanzamiento a `throw.ts` + `simRolls.ts` con métricas base
@@ -68,17 +69,19 @@ podrían ir en paralelo. Son pocas tareas pequeñas, así que se hacen en serie.
 - [x] Task 3: Bounds dinámicos desde el viewport + cámara más alta
 
 ### Checkpoint 2
-- [ ] Sim: R1.2 y R1.8 pasan en aspect 0.45 y 1.8; tsc limpio
-- [ ] Manual: el área llena la pantalla en el teléfono y en la ventana web; rotar o redimensionar recalcula
+- [x] Sim: R1.2 y R1.8 pasan en aspect 0.45 y 1.8; tsc limpio
+- [x] Manual web: el área llena la pantalla (portrait 70 % del ancho ocupado por dados); rotar o redimensionar recalcula sin recrear dados; análisis de píxeles de las capturas: 0 dados cortados en el borde
+- [ ] Manual Android: teléfono vertical; revisar tamaño visual de los dados (en landscape web se ven pequeños — trade-off del supuesto 4 del spec) — omitido por decisión del usuario (2026-11-10)
 
 ### Fase 4: Feel
 - [x] Task 4: Materiales dado/suelo/pared
 - [x] Task 5: Lanzamiento con trayectoria + tuning hasta pasar R1.5–R1.7
 
 ### Checkpoint final
-- [ ] `simRolls`, `checkPrefs` y `tsc` pasan
-- [ ] Manual en Android: 10 tiradas con 1, 3 y 6 dados; no se siente caja
-- [ ] Revisión con el usuario
+- [x] `simRolls`, `checkPrefs` y `tsc` pasan (2026-11-10: sim 12/12, tsc limpio)
+- [x] Web (Playwright, 16/16): R2.1–R2.3, R3.1–R3.3, SC4; sin errores JS; capturas en `C:\Users\jdduq\AppData\Local\Temp\pw-dados`
+- [ ] Manual en Android: 10 tiradas con 1, 3 y 6 dados; no se siente caja — omitido por decisión del usuario (2026-11-10)
+- [x] Revisión con el usuario (2026-11-10)
 
 ## Risks and Mitigations
 

@@ -25,7 +25,8 @@ Plan: [`plan.md`](plan.md). Spec: [`../SPEC.md`](../SPEC.md).
 ---
 
 ## Checkpoint 1
-- [ ] checkPrefs + tsc pasan; flujo manual OK → seguir
+- [x] checkPrefs + tsc pasan; flujo manual web OK (Playwright 16/16: color hereda, count persiste, corrupto/clamp) → seguir
+- [ ] Flujo manual en Android omitido por decisión del usuario (2026-11-10)
 
 ---
 
@@ -83,7 +84,8 @@ Se sube `CAMERA_HEIGHT` y la malla de `Ground` pasa a 80×80. Se fija `camera.lo
 ---
 
 ## Checkpoint 2
-- [ ] R1.2 y R1.8 en verde; manual del área OK; revisar con el usuario el tamaño visual de los dados
+- [x] R1.2 y R1.8 en verde (sim + análisis de píxeles de capturas web: 0 dados cortados en el borde, resize recalcula sin recrear dados)
+- [ ] Pendiente manual en Android y revisar con el usuario el tamaño visual de los dados (en landscape web se ven pequeños — trade-off aceptado en el spec, supuesto 4) — omitido por decisión del usuario (2026-11-10)
 
 ---
 
@@ -134,9 +136,10 @@ velocidad. Ajustar fricción, damping y velocidades hasta que la sim pase.
 ---
 
 ## Checkpoint final
-- [ ] `simRolls`, `checkPrefs` y `tsc` en verde
-- [ ] Success Criteria 1–5 del spec cumplidos
-- [ ] Revisión con el usuario
+- [x] `simRolls`, `checkPrefs` y `tsc` en verde (2026-11-10: sim 12/12, checkPrefs OK, tsc limpio)
+- [x] Verificación web automatizada (Playwright 16/16): R2.1–R2.3, R3.1–R3.3, SC4, resize, sin errores JS
+- [ ] Success Criteria 2–4 confirmados en Android (nativo usa `expo-file-system`, no cubierto por la prueba web) — omitido por decisión del usuario (2026-11-10)
+- [x] Revisión con el usuario (2026-11-10)
 
 ---
 
